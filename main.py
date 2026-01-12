@@ -1,9 +1,22 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import Optional
+from fastapi.middleware.cors import CORSMiddleware
 import uuid
 
 app=FastAPI()
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+max_messages=6
 conversation_store={}
 class ChatRequest(BaseModel):
     message: str
@@ -44,7 +57,7 @@ def chat(request: ChatRequest):
             previous_message=msg["content"]
             break
     if previous_message:
-        reply="User said"+previous_message+request.message
+        reply="User said "+ previous_message + request.message
     else:
         reply=request.message
 
@@ -52,7 +65,8 @@ def chat(request: ChatRequest):
             "role":"assistant",
             "content":reply
         })
-
+    
+    conversation_store[conversation_id]=conversation_store[conversation_id][-max_messages:]
     return ChatResponse (
         reply= reply,
         conversation_id=conversation_id
