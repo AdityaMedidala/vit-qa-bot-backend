@@ -1,10 +1,3 @@
-
----
-
-# 📘 README — Backend  
-**vit-qa-bot-backend**
-
-```md
 # VIT Q&A Bot — Backend
 
 A FastAPI-based backend for a conversational AI assistant designed to answer VIT-related questions.
