@@ -40,6 +40,7 @@ def health_check():
 
 @app.post("/chat")
 def chat(request: ChatRequest):
+
     if request.conversation_id is None:
         conversation_id=str(uuid.uuid4())
     else:
@@ -47,34 +48,36 @@ def chat(request: ChatRequest):
     
     if conversation_id not in conversation_store:
         conversation_store[conversation_id]=[]
-
+    
     conversation_store[conversation_id].append({
         "role":"user",
         "content":request.message
     })
 
-    history1=conversation_store[conversation_id]
+    messages=[]
+
+    messages.append({
+        "role":"system",
+        "content": "You are a helpful assistant.Respond in simple plain text without markdown formatting"
+    })
+
+    for i in conversation_store[conversation_id]:
+        messages.append(i)
 
     completion=client.chat.completions.create(
             model="gpt-4o-mini",
-            messages=[
-                {
-                    "role":"system",
-                    "content":"You are helpful AI assistant"
-                },
-                {
-                    "role": "user",
-                    "content":request.message
-                }
-            ]
+            messages=messages
         )
+    
     reply=completion.choices[0].message.content
+   
     conversation_store[conversation_id].append({
             "role":"assistant",
             "content":reply
         })
     
-    conversation_store[conversation_id]=conversation_store[conversation_id][-max_messages:]
+    conversation_store[conversation_id] = conversation_store[conversation_id][-max_messages:]
+
     return ChatResponse (
         reply= reply,
         conversation_id=conversation_id
