@@ -1,8 +1,13 @@
+from dotenv import load_dotenv
+load_dotenv()
 from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import Optional
 from fastapi.middleware.cors import CORSMiddleware
+from openai import OpenAI
 import uuid
+
+client=OpenAI()
 
 app=FastAPI()
 
@@ -50,17 +55,20 @@ def chat(request: ChatRequest):
 
     history1=conversation_store[conversation_id]
 
-    previous_message=None
-
-    for msg in reversed(history1[:-1]):
-        if msg["role"] == "user":
-            previous_message=msg["content"]
-            break
-    if previous_message:
-        reply="User said "+ previous_message + request.message
-    else:
-        reply=request.message
-
+    completion=client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role":"system",
+                    "content":"You are helpful AI assistant"
+                },
+                {
+                    "role": "user",
+                    "content":request.message
+                }
+            ]
+        )
+    reply=completion.choices[0].message.content
     conversation_store[conversation_id].append({
             "role":"assistant",
             "content":reply
