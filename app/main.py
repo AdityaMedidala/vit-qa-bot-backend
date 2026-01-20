@@ -19,6 +19,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000"
+        "https://vit-qa-6txe4spnu-aditya-medidalas-projects.vercel.app/"
     ],
     allow_credentials=True,
     allow_methods=["*"],
