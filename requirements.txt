@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+python-dotenv
+pydantic
+openai
+psycopg2-binary
+langchain-text-splitters
+tiktoken
