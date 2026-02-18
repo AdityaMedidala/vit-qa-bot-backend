@@ -47,6 +47,12 @@ def retrieval_raw(query: str,limit:int=10):
 
 def retrieve_sql(query: str):
     scored = retrieval_raw(query, limit=10)
+    if scored:
+        print(f"DEBUG: Query: {query}")
+        print(f"DEBUG: Top Score found: {scored[0][0]}")
+        print(f"DEBUG: Top Chunk text: {scored[0][1]['text'][:100]}...")
+    else:
+        print("DEBUG: No chunks found")
     return retrieve_from_scored_chunks(scored)
 
 
