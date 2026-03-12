@@ -48,12 +48,13 @@ def ingest_folder(pdf_folder: str):
 
 
             # 2. Insert document row
-            insert_document(
-                document_id=document_id,
-                document_name=document_name,
-                fingerprint=fingerprint,
-                status="processing",
-            )
+            document_id = insert_document(
+              document_id=document_id,
+              document_name=document_name,
+              fingerprint=fingerprint,
+              status="processing",)
+
+            print(f"✅ document_id confirmed: {document_id}")
 
             # 3. Extract text
             markdown = extract_text_from_pdf(pdf_path)
@@ -85,13 +86,13 @@ def ingest_folder(pdf_folder: str):
             print(f"✅ Success: {filename} ({len(chunks)} chunks)")
 
         except Exception as e:
-            update_document_status(
+          print(f"\n❌ FULL ERROR TYPE: {type(e).__name__}")
+          print(f"❌ FULL ERROR MSG: {e}")
+          update_document_status(
                 document_id=document_id,
                 status="failed",
                 error_message=str(e),
             )
-
-            print(f"❌ Failed: {filename}")
-            traceback.print_exc()
+          traceback.print_exc()
 
     print("\nIngestion completed.")

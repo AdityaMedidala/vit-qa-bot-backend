@@ -3,14 +3,14 @@ import re
 import json
 from collections import defaultdict
 
-MAX_CHARS = 2000
-FALLBACK_CHUNK_SIZE = 1800
+MAX_CHARS = 1500
+FALLBACK_CHUNK_SIZE = 1400
+MAX_TABLE_CHARS = 3000 #for tables
 
-#Checks so tables dont get cut in the middle 
+#Checks so tables don't get cut in the middle
 def safe_character_split(text: str, max_chars: int):
     chunks = []
     current = []
-
     in_table = False
     current_len = 0
 
@@ -20,20 +20,23 @@ def safe_character_split(text: str, max_chars: int):
         elif in_table and line.strip() == "":
             in_table = False
 
-        #splitting logic checks for if it is outside table and if the current chunk is too long 
-        if current_len + len(line) > max_chars and not in_table:
-            chunks.append("".join(current))
+        # hard cap overrides table protection
+        force_split = current_len > MAX_TABLE_CHARS
+
+        if (current_len + len(line) > max_chars and not in_table) or force_split:
+            if current:
+                chunks.append("".join(current))
             current = []
             current_len = 0
+            in_table = False  # reset table state on forced split
+
         current.append(line)
         current_len += len(line)
 
-    #for final lines
     if current:
         chunks.append("".join(current))
 
     return chunks
-
 
 def group_by_level_1(docs):
     grouped = defaultdict(list)

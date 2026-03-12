@@ -2,7 +2,8 @@
 venv/
 .venv/
 env/
-
+.python-version
+.DS_Store
 # Data and environment variables
 .env
 data/*

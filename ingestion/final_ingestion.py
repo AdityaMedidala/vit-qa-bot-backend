@@ -1,6 +1,6 @@
 import json
 from openai import OpenAI
-import psycopg2 
+import psycopg2
 from psycopg2.extras import execute_batch
 from dotenv import load_dotenv
 load_dotenv()
@@ -8,11 +8,12 @@ import os
 import hashlib
 import tiktoken
 
+MAX_EMBED_TOKENS = 7500
+
 tokenizer = tiktoken.get_encoding("cl100k_base")
 
 def count_tokens(text: str) -> int:
     return len(tokenizer.encode(text))
-
 
 def batch_chunks_by_tokens(chunks, max_tokens=80000):
     batches = []
@@ -52,36 +53,45 @@ def compute_fingerprint(file_path: str) -> str:
             hasher.update(chunk)
     return hasher.hexdigest()
 
+def truncate_to_token_limit(text: str, max_tokens: int = MAX_EMBED_TOKENS) -> str:
+    tokens = tokenizer.encode(text)
+    if len(tokens) <= max_tokens:
+        return text
+    return tokenizer.decode(tokens[:max_tokens])
 
 
-def insert_document(document_id: str, document_name: str,fingerprint: str,status: str="processing"):
+def insert_document(document_id: str, document_name: str, fingerprint: str, status: str = "processing") -> str:
     db_url = os.getenv("SUPABASE_URL")
-    if not db_url:
-        raise ValueError("SUPABASE_URL not set")
-
     conn = psycopg2.connect(db_url)
     cursor = conn.cursor()
 
+    # Use UPSERT — on conflict, overwrite with new document_id and reset status
     cursor.execute(
         """
-        INSERT INTO documents (document_id, document_name,fingerprint,status)
-        VALUES (%s, %s,%s,%s)
-        ON CONFLICT (fingerprint) DO NOTHING
+        INSERT INTO documents (document_id, document_name, fingerprint, status)
+        VALUES (%s, %s, %s, %s)
+        ON CONFLICT (fingerprint) 
+        DO UPDATE SET 
+            document_id = EXCLUDED.document_id,
+            status = EXCLUDED.status,
+            error_message = NULL,
+            updated_at = now()
+        RETURNING document_id
         """,
-        (document_id, document_name,fingerprint,status),
+        (document_id, document_name, fingerprint, status),
     )
-
+    actual_id = cursor.fetchone()[0]
     conn.commit()
     cursor.close()
     conn.close()
-
+    return actual_id
 
 def embed_and_insert (chunks,document_id):
     batches = batch_chunks_by_tokens(chunks)
     total_inserted = 0
 
     for batch in batches:
-        texts = [c["text"] for c in batch]
+        texts = [truncate_to_token_limit(c["text"]) for c in batch]
 
         response = client.embeddings.create(
             model="text-embedding-3-large",
