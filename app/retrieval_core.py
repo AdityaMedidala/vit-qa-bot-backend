@@ -1,7 +1,7 @@
 from openai import OpenAI
 
-PRIMARY_THRESHOLD = 0.65      # directly answerable
-SECONDARY_THRESHOLD = 0.30   # for context chunks
+PRIMARY_THRESHOLD = 0.022       # directly answerable
+SECONDARY_THRESHOLD = 0.013   # for context chunks
 MAX_CONTEXT_CHUNKS = 4 
 TOP_K = 5
 
