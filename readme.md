@@ -4,6 +4,8 @@
 
 **Stack:** Next.js 14 · FastAPI · PostgreSQL + pgvector · OpenAI · Cohere · Python
 
+**Frontend repo:** [nova-frontend](https://github.com/AdityaMedidala/vit-qa-bot)
+
 ---
 
 ## Table of Contents
@@ -34,51 +36,39 @@ NOVA answers student queries about VIT Vellore by retrieving answers from 68 off
 
 ## Architecture
 
+**Query pipeline:**
+
 ```mermaid
-flowchart TD
-    subgraph Frontend["Frontend — Next.js 14"]
-        UI["Chat UI"]
-        Citations["Source Citation Chips"]
-    end
+flowchart LR
+    A([User]) -->|message| B[Query Rewriter\ngpt-4o-mini]
+    B -->|standalone query| C[Embedder\ntext-embedding-3-large]
 
-    subgraph API["Backend — FastAPI"]
-        QR["Query Rewriter\ngpt-4o-mini"]
-        EMB["Query Embedder\ntext-embedding-3-large"]
-        RET["Hybrid Retriever"]
-        RRF["RRF Fusion  k=60"]
-        RERANK["Cohere Reranker\nrerank-v3.5"]
-        THRESH["Threshold Filter\n≥0.4 full · ≥0.35 partial"]
-        LLM["Answer Generator\ngpt-4o-mini"]
-    end
+    C --> D[(pgvector\ncosine)]
+    C --> E[(tsvector\nBM25)]
 
-    subgraph DB["Supabase PostgreSQL"]
-        VEC["pgvector\ncosine similarity"]
-        BM25["tsvector\nBM25 full-text"]
-    end
+    D -->|top 20| F[RRF Fusion\nk=60]
+    E -->|top 20| F
 
-    subgraph Ingest["Data Pipeline — Google Colab T4"]
-        SCRAPE["Playwright Scraper\nvit.ac.in"]
-        MARKER["marker-pdf\nPDF → Markdown"]
-        CHUNK["Header-Aware Chunker\nLangChain"]
-        EMBED["Batch Embedder\ntext-embedding-3-large"]
-    end
+    F -->|top 20 fused| G[Cohere Reranker\nrerank-v3.5]
+    G -->|top 10 scored| H{Threshold}
 
-    UI -->|"message + conversation_id"| QR
-    QR -->|standalone query| EMB
-    EMB --> RET
-    RET -->|top 20| VEC
-    RET -->|top 20| BM25
-    VEC --> RRF
-    BM25 --> RRF
-    RRF -->|top 20 fused| RERANK
-    RERANK -->|top 10 scored| THRESH
-    THRESH -->|context chunks| LLM
-    LLM -->|reply + sources| Citations
+    H -->|≥ 0.40| I[Full answer]
+    H -->|≥ 0.35| J[Partial context]
+    H -->|< 0.35| K[Out of scope]
 
-    SCRAPE -->|68 PDFs downloaded| MARKER
-    MARKER --> CHUNK
-    CHUNK --> EMBED
-    EMBED -->|SHA-256 dedup| DB
+    I --> L[gpt-4o-mini]
+    J --> L
+    L -->|reply + sources| A
+```
+
+**Ingestion pipeline:**
+
+```mermaid
+flowchart LR
+    A[vit.ac.in] -->|Playwright scraper| B[68 PDFs]
+    B -->|SHA-256 fingerprint\nskip duplicates| C[marker-pdf\nPDF → Markdown]
+    C -->|LangChain header splitter\nTOC filter · table-safe| D[Chunks]
+    D -->|text-embedding-3-large\n80k token batches| E[(Supabase\npgvector + tsvector)]
 ```
 
 ---
