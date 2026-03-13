@@ -6,3 +6,4 @@ openai
 psycopg2-binary
 langchain-text-splitters
 tiktoken
+cohere
