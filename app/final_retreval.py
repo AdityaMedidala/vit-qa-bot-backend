@@ -2,8 +2,8 @@ from openai import OpenAI
 import os
 from dotenv import load_dotenv
 load_dotenv()
-import psycopg2
 
+from app.db import get_db_connection, release_db_connection
 from app.retrieval_core import (
     retrieve_from_scored_chunks,
     build_context,
@@ -15,32 +15,35 @@ RRF_K = 60  # standard constant, don't change
 def retrieval_raw(query: str, limit: int = 20):
     query = query.strip()
     query_emb = embed_texts([query])[0]
-    conn = psycopg2.connect(os.getenv("SUPABASE_URL"))
-    cursor = conn.cursor()
 
-    # Vector search — returns ranked results
-    cursor.execute('''
-        SELECT chunk_id, text, metadata,
-               1 - (embedding <=> %s::vector) AS score
-        FROM document_chunks
-        ORDER BY score DESC
-        LIMIT %s
-    ''', (query_emb, limit))
-    vector_rows = cursor.fetchall()
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
 
-    # BM25 full-text search — returns ranked results
-    cursor.execute('''
-        SELECT chunk_id, text, metadata,
-               ts_rank(ts, plainto_tsquery('english', %s)) AS score
-        FROM document_chunks
-        WHERE ts @@ plainto_tsquery('english', %s)
-        ORDER BY score DESC
-        LIMIT %s
-    ''', (query, query, limit))
-    bm25_rows = cursor.fetchall()
+        # Vector search — returns ranked results
+        cursor.execute('''
+            SELECT chunk_id, text, metadata,
+                   1 - (embedding <=> %s::vector) AS score
+            FROM document_chunks
+            ORDER BY score DESC
+            LIMIT %s
+        ''', (query_emb, limit))
+        vector_rows = cursor.fetchall()
 
-    cursor.close()
-    conn.close()
+        # BM25 full-text search — returns ranked results
+        cursor.execute('''
+            SELECT chunk_id, text, metadata,
+                   ts_rank(ts, plainto_tsquery('english', %s)) AS score
+            FROM document_chunks
+            WHERE ts @@ plainto_tsquery('english', %s)
+            ORDER BY score DESC
+            LIMIT %s
+        ''', (query, query, limit))
+        bm25_rows = cursor.fetchall()
+
+        cursor.close()
+    finally:
+        release_db_connection(conn)
 
     # Build rank maps  {chunk_id: rank (1-based)}
     vector_ranks = {row[0]: idx + 1 for idx, row in enumerate(vector_rows)}
