@@ -1,5 +1,6 @@
 from openai import OpenAI
 import os
+import cohere
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -10,7 +11,12 @@ from app.retrieval_core import (
     embed_texts
 )
 
-RRF_K = 60  # standard constant, don't change
+RRF_K = 60
+RERANK_TOP_N = 10      # how many chunks to keep after reranking
+RERANK_MODEL = "rerank-v3.5"   # Cohere's latest cross-encoder
+
+cohere_client = cohere.Client(os.getenv("COHERE_API_KEY"))
+
 
 def retrieval_raw(query: str, limit: int = 20):
     query = query.strip()
@@ -20,7 +26,7 @@ def retrieval_raw(query: str, limit: int = 20):
     try:
         cursor = conn.cursor()
 
-        # Vector search — returns ranked results
+        # Vector search
         cursor.execute('''
             SELECT chunk_id, text, metadata,
                    1 - (embedding <=> %s::vector) AS score
@@ -30,7 +36,7 @@ def retrieval_raw(query: str, limit: int = 20):
         ''', (query_emb, limit))
         vector_rows = cursor.fetchall()
 
-        # BM25 full-text search — returns ranked results
+        # BM25 full-text search
         cursor.execute('''
             SELECT chunk_id, text, metadata,
                    ts_rank(ts, plainto_tsquery('english', %s)) AS score
@@ -45,11 +51,11 @@ def retrieval_raw(query: str, limit: int = 20):
     finally:
         release_db_connection(conn)
 
-    # Build rank maps  {chunk_id: rank (1-based)}
+    # Build rank maps
     vector_ranks = {row[0]: idx + 1 for idx, row in enumerate(vector_rows)}
     bm25_ranks   = {row[0]: idx + 1 for idx, row in enumerate(bm25_rows)}
 
-    # Collect all chunks seen in either list
+    # Collect all unique chunks
     all_chunks = {}
     for row in vector_rows + bm25_rows:
         chunk_id, text, metadata, _ = row
@@ -67,15 +73,60 @@ def retrieval_raw(query: str, limit: int = 20):
     return fused[:limit]
 
 
+def rerank_with_cohere(query: str, fused_chunks: list) -> list:
+    """
+    Takes RRF-fused chunks, sends to Cohere cross-encoder, returns
+    reranked list in same (score, item) format so downstream code is unchanged.
+
+    Cross-encoder vs bi-encoder:
+    - Bi-encoder (what we use for vector search): encodes query and chunk
+      SEPARATELY, compares via cosine. Fast but loses interaction signal.
+    - Cross-encoder (Cohere rerank): feeds [query + chunk] TOGETHER into
+      the model. Sees full interaction between query tokens and chunk tokens.
+      Much more accurate, but too slow to run on all chunks — so we run it
+      only on the top-N from RRF (the "retrieve then rerank" pattern).
+    """
+    if not fused_chunks:
+        return fused_chunks
+
+    documents = [item["text"] for _, item in fused_chunks]
+
+    response = cohere_client.rerank(
+        model=RERANK_MODEL,
+        query=query,
+        documents=documents,
+        top_n=RERANK_TOP_N,
+        return_documents=False,   # we already have the text
+    )
+
+    reranked = []
+    for result in response.results:
+        original_score, item = fused_chunks[result.index]
+        # Use Cohere's relevance score as the new score
+        reranked.append((result.relevance_score, item))
+
+    print(f"DEBUG: Pre-rerank order: {[item['chunk_id'] for _, item in fused_chunks[:5]]}")
+    print(f"DEBUG: Post-rerank order: {[item['chunk_id'] for _, item in reranked[:5]]}")
+    return reranked
+
+
 def retrieve_sql(query: str):
-    scored = retrieval_raw(query, limit=20)
-    if scored:
-        print(f"DEBUG: Query: {query}")
-        print(f"DEBUG: Top RRF Score: {scored[0][0]:.4f}")
-        print(f"DEBUG: Top Chunk: {scored[0][1]['text'][:100]}...")
-    else:
+    # Step 1: Hybrid retrieval + RRF
+    fused = retrieval_raw(query, limit=20)
+
+    if not fused:
         print("DEBUG: No chunks found")
-    return retrieve_from_scored_chunks(scored)
+        return {"mode": "none", "top_score": 0, "results": [], "sources": []}
+
+    # Step 2: Cohere cross-encoder rerank
+    reranked = rerank_with_cohere(query, fused)
+
+    print(f"DEBUG: Query: {query}")
+    print(f"DEBUG: Top Cohere score: {reranked[0][0]:.4f}")
+    print(f"DEBUG: Top Chunk: {reranked[0][1]['text'][:100]}...")
+
+    # Step 3: Threshold filtering + source extraction
+    return retrieve_from_scored_chunks(reranked)
 
 
 if __name__ == "__main__":
