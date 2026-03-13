@@ -1,223 +1,361 @@
-# VIT Q&A Bot — Backend
+# NOVA — VIT University Q&A Chatbot
 
-RAG-powered conversational AI for answering VIT university queries using official documents.
+> RAG-powered conversational AI for answering VIT Vellore queries using official university documents.
 
-**Stack:** FastAPI • PostgreSQL + pgvector • OpenAI • Python
+**Stack:** Next.js 14 · FastAPI · PostgreSQL + pgvector · OpenAI · Cohere · Python
+
+---
+
+## Table of Contents
+
+1. [Overview](#overview)
+2. [Architecture](#architecture)
+3. [Project Structure](#project-structure)
+4. [Retrieval Pipeline](#retrieval-pipeline)
+5. [Ingestion Pipeline](#ingestion-pipeline)
+6. [Setup](#setup)
+7. [API Reference](#api-reference)
+8. [Database Schema](#database-schema)
+
+---
+
+## Overview
+
+NOVA answers student queries about VIT Vellore by retrieving answers from 68 official university documents — academic regulations, hostel policies, fee structures, programme brochures, NIRF reports, and more.
+
+**Key capabilities:**
+- Hybrid BM25 + vector search with RRF fusion
+- Cohere cross-encoder reranking
+- Multi-threshold scoring with source citations
+- Follow-up question handling via query rewriting
+- 3,800+ indexed chunks across 68 documents
 
 ---
 
 ## Architecture
 
+```mermaid
+flowchart TD
+    subgraph Frontend["Frontend — Next.js 14"]
+        UI["Chat UI"]
+        Citations["Source Citation Chips"]
+    end
+
+    subgraph API["Backend — FastAPI"]
+        QR["Query Rewriter\ngpt-4o-mini"]
+        EMB["Query Embedder\ntext-embedding-3-large"]
+        RET["Hybrid Retriever"]
+        RRF["RRF Fusion  k=60"]
+        RERANK["Cohere Reranker\nrerank-v3.5"]
+        THRESH["Threshold Filter\n≥0.4 full · ≥0.35 partial"]
+        LLM["Answer Generator\ngpt-4o-mini"]
+    end
+
+    subgraph DB["Supabase PostgreSQL"]
+        VEC["pgvector\ncosine similarity"]
+        BM25["tsvector\nBM25 full-text"]
+    end
+
+    subgraph Ingest["Data Pipeline — Google Colab T4"]
+        SCRAPE["Playwright Scraper\nvit.ac.in"]
+        MARKER["marker-pdf\nPDF → Markdown"]
+        CHUNK["Header-Aware Chunker\nLangChain"]
+        EMBED["Batch Embedder\ntext-embedding-3-large"]
+    end
+
+    UI -->|"message + conversation_id"| QR
+    QR -->|standalone query| EMB
+    EMB --> RET
+    RET -->|top 20| VEC
+    RET -->|top 20| BM25
+    VEC --> RRF
+    BM25 --> RRF
+    RRF -->|top 20 fused| RERANK
+    RERANK -->|top 10 scored| THRESH
+    THRESH -->|context chunks| LLM
+    LLM -->|reply + sources| Citations
+
+    SCRAPE -->|68 PDFs downloaded| MARKER
+    MARKER --> CHUNK
+    CHUNK --> EMBED
+    EMBED -->|SHA-256 dedup| DB
 ```
-Frontend (Next.js)
-       ↓
-FastAPI Backend
-   ↓       ↓
-OpenAI   PostgreSQL + pgvector
-(LLM)    (Vector Database)
-```
-
-**Query Flow:**
-1. User message → Query rewriting (if follow-up)
-2. Embed query → Vector similarity search
-3. Multi-threshold scoring → Context building
-4. GPT-4o-mini generates answer
-
-**Ingestion Pipeline:**
-```
-PDF → Markdown → Smart Chunking → Embeddings → Database
-```
-
----
-
-## Key Features
-
-- **RAG Pipeline** with semantic search
-- **Multi-threshold scoring** (0.65 primary / 0.40 secondary)
-- **Smart chunking** using LangChain text splitters
-- **Follow-up handling** via query rewriting
-- **Deduplication** using SHA-256 fingerprinting
-- **Token-based batching** for efficient embedding
-- **Batch PDF ingestion** with automatic processing
 
 ---
 
 ## Project Structure
 
 ```
-├── app/
-│   ├── final_retreval.py      # Vector retrieval
-│   ├── retrieval_core.py      # Scoring + context building
-│   └── query_rewrite.py       # Follow-up rewriting
-├── ingestion/
-│   ├── scan.py                # PDF → Markdown (marker-pdf)
-│   ├── chunking.py            # Intelligent chunking
-│   └── final_ingestion.py     # Embedding + DB insert
-├── main.py                    # FastAPI app
-└── requirements.txt
+nova/
+├── app/                              # FastAPI backend
+│   ├── __init__.py
+│   ├── db.py                         # ThreadedConnectionPool (psycopg2)
+│   ├── main.py                       # /chat endpoint
+│   ├── final_retreval.py             # Hybrid search + Cohere reranking
+│   ├── retrieval_core.py             # Thresholds, context building, answer gen
+│   └── query_rewrite.py              # Follow-up → standalone query
+│
+├── data-pipeline/
+│   ├── __init__.py
+│   ├── ingestion/
+│   │   ├── __init__.py
+│   │   ├── scan.py                   # PDF → Markdown via marker-pdf
+│   │   ├── chunking.py               # Header splitting + TOC detection
+│   │   ├── final_ingestion.py        # Embed + DB insert + fingerprinting
+│   │   └── ingest_folder.py          # Sequential ingestion runner
+│   ├── scraper/
+│   │   └── scraper.py                # Playwright crawler for vit.ac.in
+│   └── notebooks/
+│       └── VITingestdownload.ipynb   # Colab ingestion notebook (T4 GPU)
+│
+├── data/                             # Place PDFs here before running ingestion
+│   └── .gitkeep                      # Folder tracked in git, contents gitignored
+├── requirements.txt                  # API server dependencies
+├── requirements-ingestion.txt        # Colab ingestion dependencies
+├── requirements-scraping.txt         # Scraper dependencies
+├── .env.example                      # Copy to .env and fill in your keys
+└── .env                              # gitignored
 ```
 
 ---
 
-## Ingesting Documents
-
-### 1. Prepare your PDF files
-
-Create a folder and place your PDF documents:
-
-```bash
-documents/
-├── Academic_Regulations.pdf
-├── Hostel_Rules.pdf
-├── Placement_Policy.pdf
-└── Fee_Structure.pdf
-```
-
-### 2. Install ingestion dependencies
-
-```bash
-pip install -r requirements-ingest.txt
-```
-
-This includes `marker-pdf` for high-quality PDF extraction.
-
-### 3. Run the ingestion pipeline
-
-```python
-from ingestion.ingest_folder import ingest_folder
-
-# Process all PDFs in the folder
-ingest_folder("documents/")
-```
-
-### What happens during ingestion:
+## Retrieval Pipeline
 
 ```
-PDF Files
-    ↓
-1. SHA-256 Fingerprinting (skip duplicates)
-    ↓
-2. PDF → Markdown Extraction (marker-pdf)
-    ↓
-3. LangChain Header Splitting (#, ##, ###, ####)
-    ↓
-4. TOC Detection & Filtering
-    ↓
-5. Recursive Chunking (max 2000 chars)
-    ↓
-6. OpenAI Embedding (text-embedding-3-large)
-    ↓
-7. Batch Insert to PostgreSQL + pgvector
+User message
+    │
+    ▼  (follow-up only)
+Query Rewriter ── gpt-4o-mini rewrites to standalone question
+    │
+    ▼
+Embed query ── text-embedding-3-large (3072d)
+    │
+    ├──────────────────────────────────────┐
+    ▼                                      ▼
+Vector Search                          BM25 Full-Text
+pgvector cosine · top 20               tsvector plainto_tsquery · top 20
+    │                                      │
+    └─────────────────┬────────────────────┘
+                      ▼
+               RRF Fusion  k=60
+               rank-based, scale-agnostic
+                      │
+                      ▼
+            Cohere rerank-v3.5
+            cross-encoder: query + chunk seen together
+            top 10 · relevance scores 0–1
+                      │
+                      ▼
+            Threshold Scoring
+            score ≥ 0.40  →  full answer
+            score ≥ 0.35  →  partial context
+            score < 0.35  →  out of scope
+                      │
+                      ▼
+            gpt-4o-mini generates answer + source citations
 ```
 
-**Features:**
-- ✅ Automatic duplicate detection via fingerprinting
-- ✅ Smart chunking preserves tables and context
-- ✅ TOC sections automatically filtered out
-- ✅ Token-based batching (80k tokens/batch)
-- ✅ Status tracking (`processing`, `done`, `failed`)
+**Why RRF over score normalization?**
+BM25 and cosine scores live on different scales. RRF uses only rank position so there's no scale mismatch to correct.
+
+**Why cross-encoder reranking?**
+The bi-encoder used for vector search encodes query and chunk separately — it misses token-level interaction between them. Cohere's cross-encoder sees both concatenated, giving significantly more accurate relevance scores at the cost of latency (acceptable since it only runs on top-20 candidates).
+
+---
+
+## Ingestion Pipeline
+
+Run on Google Colab (T4 GPU) — see `data-pipeline/notebooks/VITingestdownload.ipynb`.
+
+```
+vit.ac.in
+    │
+    ▼
+Playwright Crawler
+JS-rendered pages · 120 pages crawled · 153 PDFs found
+    │
+    ▼
+Download + Filter
+68 high-signal PDFs · ~346 MB
+filtered out: meeting minutes, sports achievements, blank forms, old calendars
+    │
+    ▼
+SHA-256 Fingerprinting
+skip already-ingested documents on re-runs
+    │
+    ▼
+marker-pdf extraction
+PDF → structured Markdown  (GPU-accelerated on T4)
+    │
+    ▼
+Header-Aware Chunking
+LangChain MarkdownHeaderTextSplitter  (#, ##, ###, ####)
+TOC detection and removal
+table-safe splitting — no mid-table cuts
+recursive size management — max 1500 chars
+    │
+    ▼
+OpenAI Embeddings
+text-embedding-3-large · token-batched at 80k tokens/batch
+    │
+    ▼
+PostgreSQL + pgvector
+68 documents · 3,800+ chunks
+```
+
+> **Note on parallelism:** `ingest_folder.py` runs sequentially. `ProcessPoolExecutor` was attempted (3 workers) but PyTorch raises `RuntimeError: Cannot re-initialize CUDA in forked subprocess` on Linux because the default start method is `fork`. marker-pdf loads CUDA models at import time. Sequential is the correct approach — marker is GPU-bound anyway so parallelism wouldn't help throughput.
 
 ---
 
 ## Setup
 
+### Prerequisites
+
+- Python 3.11+
+- PostgreSQL with pgvector (Supabase recommended)
+- OpenAI API key
+- Cohere API key
+
+### 1. Clone and install
+
 ```bash
-# Install dependencies
+git clone https://github.com/your-username/nova-vit
+cd nova-vit
 pip install -r requirements.txt
-
-# Configure .env
-OPENAI_API_KEY=your_key
-SUPABASE_URL=postgresql://...
-
-# Run server
-uvicorn main:app --reload
 ```
 
----
+### 2. Configure environment
 
-## Database Schema
+```bash
+cp .env.example .env
+# Fill in your keys
+```
+
+```env
+OPENAI_API_KEY=sk-...
+COHERE_API_KEY=...
+SUPABASE_URL=postgresql://postgres:[password]@[host]:5432/postgres
+```
+
+### 3. Add your PDFs
+
+Place PDF files in the `data/` folder before running ingestion. The folder exists in the repo (tracked via `.gitkeep`) but its contents are gitignored — PDFs are not committed.
+
+```bash
+data/
+├── Academic-Regulations.pdf
+├── Student-Code-of-Conduct.pdf
+└── ...
+```
+
+To scrape PDFs from vit.ac.in directly:
+
+```bash
+pip install -r requirements-scraping.txt
+playwright install chromium
+python data-pipeline/scraper/scraper.py
+```
+
+Or run the full ingestion notebook on Colab T4: `data-pipeline/notebooks/VITingestdownload.ipynb`
+
+### 4. Set up the database
 
 ```sql
--- Enable vector extension
 CREATE EXTENSION vector;
 
--- Documents table
 CREATE TABLE documents (
-    document_id UUID PRIMARY KEY,
-    document_name TEXT,
-    fingerprint TEXT UNIQUE,
-    status TEXT
+    document_id   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    document_name TEXT NOT NULL,
+    fingerprint   TEXT UNIQUE NOT NULL,
+    status        TEXT NOT NULL,
+    error_message TEXT,
+    created_at    TIMESTAMPTZ DEFAULT now(),
+    updated_at    TIMESTAMPTZ DEFAULT now()
 );
 
--- Chunks with embeddings
 CREATE TABLE document_chunks (
-    chunk_id TEXT PRIMARY KEY,
-    document_id UUID,
-    text TEXT,
-    embedding vector(3072),  -- OpenAI text-embedding-3-large
-    metadata JSONB
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    chunk_id      TEXT UNIQUE NOT NULL,
+    document_id   UUID REFERENCES documents(document_id),
+    document_text TEXT NOT NULL,
+    text          TEXT NOT NULL,
+    embedding     vector(3072) NOT NULL,
+    metadata      JSONB NOT NULL,
+    char_count    INTEGER NOT NULL,
+    ts            TSVECTOR,
+    created_at    TIMESTAMPTZ DEFAULT now()
 );
 
 -- Vector index
 CREATE INDEX ON document_chunks USING hnsw (embedding vector_cosine_ops);
+
+-- Full-text index
+CREATE INDEX ON document_chunks USING GIN (ts);
+
+-- Auto-populate tsvector on insert/update
+CREATE TRIGGER tsvector_update
+BEFORE INSERT OR UPDATE ON document_chunks
+FOR EACH ROW EXECUTE FUNCTION
+tsvector_update_trigger(ts, 'pg_catalog.english', text);
+```
+
+### 5. Run the server
+
+```bash
+python -m uvicorn app.main:app --reload
 ```
 
 ---
 
-## API Endpoints
+## API Reference
+
+### `GET /`
+
+```json
+{ "status": "backend is running" }
+```
 
 ### `POST /chat`
 
 ```json
 // Request
 {
-  "message": "What is the attendance policy?",
+  "message": "What is the attendance policy at VIT?",
   "conversation_id": "optional-uuid"
 }
 
 // Response
 {
-  "reply": "The attendance policy requires...",
-  "conversation_id": "uuid"
+  "reply": "VIT requires a minimum of 75% attendance...",
+  "conversation_id": "550e8400-e29b-41d4-a716-446655440000",
+  "sources": [
+    {
+      "document": "Academic Regulations",
+      "section": "Attendance Requirements",
+      "chunk_id": "academic_regulations__attendance_requirements__chunk_002"
+    }
+  ]
 }
 ```
 
----
-
-## Technical Highlights
-
-**Retrieval Strategy:**
-- `score ≥ 0.65` → Direct answer
-- `0.40 ≤ score < 0.65` → Related context
-- `score < 0.40` → "Not found in documents"
-
-**Chunking Strategy:**
-- LangChain `MarkdownHeaderTextSplitter` for header-based splitting
-- Split by markdown headers (#, ##, ###, ####)
-- Preserve tables (no mid-table splits)
-- Auto-detect and remove TOC sections
-- Recursive size management (max 2000 chars/chunk)
-
-**Conversation Handling:**
-- In-memory conversation store
-- Follow-up questions rewritten to standalone queries
-- Context-aware responses
+Pass the returned `conversation_id` in subsequent messages to enable follow-up handling. The backend rewrites follow-ups into standalone queries before retrieval.
 
 ---
 
-## Tech Stack
+## Database Schema
 
-| Component | Technology |
-|-----------|-----------|
-| Framework | FastAPI |
-| LLM | GPT-4o-mini |
-| Embeddings | text-embedding-3-large (3072d) |
-| Vector DB | PostgreSQL + pgvector |
-| PDF Processing | marker-pdf |
-| Text Splitting | LangChain MarkdownHeaderTextSplitter |
+| Table | Column | Type | Notes |
+|---|---|---|---|
+| `documents` | `document_id` | UUID | PK |
+| | `fingerprint` | TEXT | SHA-256, unique — prevents re-ingestion |
+| | `status` | TEXT | `processing` · `done` · `failed` |
+| `document_chunks` | `chunk_id` | TEXT | Slug-based: `doc__section__chunk_000` |
+| | `embedding` | vector(3072) | text-embedding-3-large |
+| | `ts` | tsvector | auto-populated via trigger |
+| | `metadata` | jsonb | `{document, level_1, char_count}` |
 
 ---
 
 ## Author
 
-**Aditya** — Full-Stack Developer
+**Aditya** — B.Tech Information Technology, VIT Vellore 2026

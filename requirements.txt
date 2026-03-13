@@ -1,9 +1,12 @@
+# API server — Railway / local
+# pip install -r requirements.txt
+
 fastapi
-uvicorn
+uvicorn[standard]
+openai
+cohere
+psycopg2-binary
 python-dotenv
 pydantic
-openai
-psycopg2-binary
-langchain-text-splitters
+slowapi
 tiktoken
-cohere

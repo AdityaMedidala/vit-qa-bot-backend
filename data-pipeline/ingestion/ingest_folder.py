@@ -3,9 +3,9 @@ import uuid
 import traceback
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
-from ingestion.scan import extract_text_from_pdf
-from ingestion.chunking import chunk_markdown_document
-from ingestion.final_ingestion import (
+from .scan import extract_text_from_pdf
+from .chunking import chunk_markdown_document
+from .final_ingestion import (
     embed_and_insert,
     insert_document,
     compute_fingerprint,

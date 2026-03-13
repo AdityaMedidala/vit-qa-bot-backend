@@ -6,6 +6,7 @@ env/
 .DS_Store
 # Data and environment variables
 .env
+
 data/*
 !data/.gitkeep
 

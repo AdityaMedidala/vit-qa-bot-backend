@@ -1,1 +1,12 @@
+# Ingestion pipeline — Google Colab T4 GPU
+# pip install -r requirements-ingestion.txt
+#
+# Note: marker-pdf pulls in torch, surya, and transformers automatically.
+# Run on a GPU runtime — CPU ingestion is extremely slow.
+
 marker-pdf
+langchain-text-splitters
+openai
+psycopg2-binary
+python-dotenv
+tiktoken
