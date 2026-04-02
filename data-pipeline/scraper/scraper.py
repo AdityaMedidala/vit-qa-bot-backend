@@ -1,23 +1,23 @@
-import os
-import re
+import os #filesystems
+import re #regex
 import time
-import hashlib
-import requests
-from urllib.parse import urljoin, urlparse
-from bs4 import BeautifulSoup
-import pandas as pd
-import asyncio
-from playwright.async_api import async_playwright
+import hashlib # generating hashing
+import requests #http requests
+from urllib.parse import urljoin, urlparse #converts relative url to proper URL
+from bs4 import BeautifulSoup #raw html to structured tree
+import pandas as pd #for tabular data
+import asyncio #async execution
+from playwright.async_api import async_playwright #headless automation since requests cant read js
 
-# Dynamically set OUTPUT_DIR to point to the root 'data/' folder
 # This file is in: VIT-RAG-Project/data_pipeline/scraper/scraper.py
-# So we need to go up three levels to get to the root directory
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-OUTPUT_DIR = os.path.join(BASE_DIR, "data")
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) #going up 3 folders up
+OUTPUT_DIR = os.path.join(BASE_DIR, "data")  #final result
 
-DELAY = 1.5
-TIMEOUT = 15
-MAX_PDF_MB = 50
+DELAY = 1.5 #prevents getting blocked
+TIMEOUT = 15 #time before request fails
+MAX_PDF_MB = 50 #biggest pdfs
+
+#makes requests seem like from real browser or blocked
 HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; VIT-Research-Bot/1.0)"}
 
 SEED_URLS = [
@@ -41,12 +41,13 @@ SEED_URLS = [
 
 
 def is_vit_domain(url):
-    return "vit.ac.in" in urlparse(url).netloc.lower()
+    return "vit.ac.in" in urlparse(url).netloc.lower() #url parser extracts domain from url
 
 
 def url_to_filename(url):
     path = urlparse(url).path
     name = os.path.basename(path)
+    #if no filename present
     if not name.lower().endswith(".pdf"):
         name = hashlib.md5(url.encode()).hexdigest()[:12] + ".pdf"
     return re.sub(r"[^\w\-.]", "_", name)
@@ -54,7 +55,9 @@ def url_to_filename(url):
 
 def get_pdf_size(url):
     try:
+        #only fetches header
         r = requests.head(url, headers=HEADERS, timeout=8, allow_redirects=True)
+        #getting content length
         cl = r.headers.get("Content-Length")
         if cl:
             kb = int(cl) / 1024
