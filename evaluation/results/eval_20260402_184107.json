@@ -1,0 +1,40 @@
+{
+  "timestamp": "20260402_184107",
+  "question_count": 25,
+  "nova": {
+    "faithfulness": 0.89,
+    "answer_relevancy": 0.7308,
+    "context_precision": 0.61,
+    "context_recall": 0.3017
+  },
+  "baseline": {
+    "answer_relevancy": 0.7013
+  },
+  "questions": [
+    "What is the minimum attendance percentage required at VIT Vellore?",
+    "What are the hostel fees for a single occupancy AC room at VIT Vellore?",
+    "What is the CGPA requirement to be eligible for a PhD programme at VIT?",
+    "How many credits are required to complete a B.Tech degree at VIT Vellore?",
+    "What is the grading system used at VIT Vellore?",
+    "What is VIT's NIRF ranking?",
+    "What are the placement statistics at VIT Vellore?",
+    "What is the fee structure for B.Tech Computer Science Engineering at VIT Vellore?",
+    "What is FFCS at VIT and how does it work?",
+    "What are the hostel rules regarding visitors and curfew timings at VIT Vellore?",
+    "What is the process to apply for an arrear exam at VIT Vellore?",
+    "What scholarships are available for students at VIT Vellore?",
+    "What is the duration of the B.Tech programme at VIT Vellore?",
+    "How many students does VIT Vellore admit per year?",
+    "What research facilities are available at VIT Vellore?",
+    "What is the academic calendar structure at VIT Vellore?",
+    "What are the different schools within VIT Vellore?",
+    "What are the rules regarding mobile phones in VIT hostels?",
+    "What international collaborations does VIT Vellore have?",
+    "What is the process for applying to M.Tech programmes at VIT Vellore?",
+    "What sports facilities are available at VIT Vellore campus?",
+    "What is the VITEEE exam and what is its eligibility?",
+    "What are the library facilities at VIT Vellore?",
+    "What is the process for lateral entry admission to B.Tech at VIT?",
+    "What are the CAT (Continuous Assessment Test) rules at VIT Vellore?"
+  ]
+}

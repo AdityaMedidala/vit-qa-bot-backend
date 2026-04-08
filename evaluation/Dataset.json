@@ -1,0 +1,102 @@
+[
+  {
+    "question": "What is the minimum attendance percentage required at VIT Vellore?",
+    "ground_truth": "Students at VIT Vellore must maintain a minimum attendance of 75% in each course. Falling below this threshold may result in the student being debarred from appearing in the end semester examinations."
+  },
+  {
+    "question": "What are the hostel fees for a single occupancy AC room at VIT Vellore?",
+    "ground_truth": "VIT Vellore offers various hostel accommodation options. Single occupancy AC rooms are available at a higher fee tier compared to shared rooms. Fees vary by block and are subject to revision each academic year. Students should refer to the latest fee structure document for exact figures."
+  },
+  {
+    "question": "What is the CGPA requirement to be eligible for a PhD programme at VIT?",
+    "ground_truth": "Candidates applying for the PhD programme at VIT must have a minimum CGPA of 6.5 out of 10 (or equivalent) in their postgraduate degree. Some schools may have higher requirements depending on the specialization."
+  },
+  {
+    "question": "How many credits are required to complete a B.Tech degree at VIT Vellore?",
+    "ground_truth": "A B.Tech student at VIT Vellore must earn a minimum of 160 credits to be eligible for the award of the degree. This includes core courses, electives, lab courses, and project work as specified in the curriculum."
+  },
+  {
+    "question": "What is the grading system used at VIT Vellore?",
+    "ground_truth": "VIT Vellore follows a 10-point grading system. Grades range from S (outstanding, 10 points) through A, B, C, D, and E, with N indicating failure. The CGPA is the weighted average of grade points across all registered courses."
+  },
+  {
+    "question": "What is VIT's NIRF ranking?",
+    "ground_truth": "VIT Vellore has consistently ranked among the top engineering institutions in India in the NIRF (National Institutional Ranking Framework) rankings, typically appearing in the top 10-15 in the engineering category. The exact rank varies by year."
+  },
+  {
+    "question": "What are the placement statistics at VIT Vellore?",
+    "ground_truth": "VIT Vellore has strong placement records with a large number of companies visiting campus each year. The Centre for Career Development facilitates placements across IT, core engineering, consulting, and finance sectors. Top recruiters include major MNCs and product-based companies."
+  },
+  {
+    "question": "What is the fee structure for B.Tech Computer Science Engineering at VIT Vellore?",
+    "ground_truth": "B.Tech programmes at VIT Vellore have tuition fees that vary by programme category. CSE and related programmes typically fall in a higher fee band. Fees are paid semester-wise and include tuition, examination, and development charges. Exact figures are published in the admissions brochure each year."
+  },
+  {
+    "question": "What is FFCS at VIT and how does it work?",
+    "ground_truth": "FFCS stands for Fully Flexible Credit System. It allows students to choose their own courses, faculty, and time slots each semester from a published timetable. Students register for courses based on availability and their curriculum requirements, giving them flexibility over their academic schedule."
+  },
+  {
+    "question": "What are the hostel rules regarding visitors and curfew timings at VIT Vellore?",
+    "ground_truth": "VIT Vellore hostels have defined visitor policies and curfew timings. Students are generally required to return to the hostel by a specified time in the evening. Visitors of the opposite gender are typically not permitted inside hostel blocks. Specific timings are outlined in the hostel handbook."
+  },
+  {
+    "question": "What is the process to apply for an arrear exam at VIT Vellore?",
+    "ground_truth": "Students who fail a course (receive an N grade or are absent) can re-register for the course in a subsequent semester as per the academic regulations. Arrear exam registration is done through the Student Information Portal (SIP) during the course registration window."
+  },
+  {
+    "question": "What scholarships are available for students at VIT Vellore?",
+    "ground_truth": "VIT Vellore offers merit-based scholarships for students who perform exceptionally well academically. Government scholarships such as SC/ST scholarships and state government scholarships are also applicable. Sports and cultural achievement-based fee concessions may also be available."
+  },
+  {
+    "question": "What is the duration of the B.Tech programme at VIT Vellore?",
+    "ground_truth": "The B.Tech programme at VIT Vellore is a four-year full-time undergraduate degree programme, spanning eight semesters. The academic year is typically divided into two semesters: Fall (July–November) and Winter (December–April)."
+  },
+  {
+    "question": "How many students does VIT Vellore admit per year?",
+    "ground_truth": "VIT Vellore is one of the largest private engineering universities in India and admits a large cohort of students each year across B.Tech, M.Tech, MBA, MCA, and PhD programmes. The total student strength across all programmes runs into tens of thousands."
+  },
+  {
+    "question": "What research facilities are available at VIT Vellore?",
+    "ground_truth": "VIT Vellore has multiple research centres and laboratories across disciplines including nanotechnology, robotics, biotechnology, cyber security, and advanced materials. The university has funded research projects from DST, DRDO, and international collaborations."
+  },
+  {
+    "question": "What is the academic calendar structure at VIT Vellore?",
+    "ground_truth": "VIT Vellore follows a semester-based academic calendar with two main semesters per year — Fall semester (approximately July to November) and Winter semester (approximately December to April). Each semester includes mid-term assessments, continuous assessment tests (CATs), and end-semester examinations."
+  },
+  {
+    "question": "What are the different schools within VIT Vellore?",
+    "ground_truth": "VIT Vellore is organized into multiple schools including SENSE (School of Electrical and Electronics Engineering), SCOPE (School of Computing), SITE (School of Information Technology and Engineering), SELECT (School of Electrical Engineering), SMEC (School of Mechanical Engineering), SBST (School of Biosciences and Technology), SSL (School of Social Sciences and Languages), and the School of Design."
+  },
+  {
+    "question": "What are the rules regarding mobile phones in VIT hostels?",
+    "ground_truth": "VIT Vellore hostel regulations outline specific policies around mobile phone usage, including restrictions during study hours and night hours. Detailed rules are published in the hostel handbook and students are expected to comply with these regulations."
+  },
+  {
+    "question": "What international collaborations does VIT Vellore have?",
+    "ground_truth": "VIT Vellore has established partnerships and MoUs with numerous international universities and research institutions across the USA, Europe, Australia, and Asia. These collaborations facilitate student exchange programmes, joint research, and dual degree opportunities."
+  },
+  {
+    "question": "What is the process for applying to M.Tech programmes at VIT Vellore?",
+    "ground_truth": "Admission to M.Tech programmes at VIT Vellore is based on GATE scores. Candidates with valid GATE scores in the relevant discipline can apply through VIT's official admissions portal. Shortlisted candidates are called for counselling and seat allotment."
+  },
+  {
+    "question": "What sports facilities are available at VIT Vellore campus?",
+    "ground_truth": "VIT Vellore has extensive sports facilities including cricket grounds, basketball courts, tennis courts, a swimming pool, badminton courts, a gymnasium, and a football field. The university actively encourages sports participation through clubs and inter-college tournaments."
+  },
+  {
+    "question": "What is the VITEEE exam and what is its eligibility?",
+    "ground_truth": "VITEEE (VIT Engineering Entrance Examination) is the entrance exam conducted by VIT for admission to B.Tech programmes. Eligibility requires candidates to have passed 10+2 with Physics, Chemistry, and Mathematics (or Biology for biotech programmes) with a minimum aggregate of 60%. Age criteria also apply."
+  },
+  {
+    "question": "What are the library facilities at VIT Vellore?",
+    "ground_truth": "VIT Vellore has a large central library with an extensive collection of books, journals, e-resources, and digital databases. The library provides access to platforms like IEEE Xplore, Elsevier ScienceDirect, and Springer. It operates extended hours during examination periods."
+  },
+  {
+    "question": "What is the process for lateral entry admission to B.Tech at VIT?",
+    "ground_truth": "Lateral entry to B.Tech at VIT Vellore is open to diploma holders who wish to join the second year (third semester) of the B.Tech programme. Admission is based on academic merit and availability of seats. Candidates must apply through the official VIT admissions process."
+  },
+  {
+    "question": "What are the CAT (Continuous Assessment Test) rules at VIT Vellore?",
+    "ground_truth": "VIT Vellore conducts Continuous Assessment Tests (CATs) as part of in-semester evaluation. Typically, two CATs are held per semester. The marks from CATs contribute to the overall internal assessment component of the course grade. Students must maintain attendance eligibility to appear in CATs."
+  }
+]

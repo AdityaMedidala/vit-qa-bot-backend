@@ -30,6 +30,8 @@ NOVA answers student queries about VIT Vellore by retrieving answers from 68 off
 - Cohere cross-encoder reranking
 - Multi-threshold scoring with source citations
 - Follow-up question handling via query rewriting
+- Server-sent events (SSE) streaming for real-time token delivery
+- Admin panel for document management (delete, re-ingest)
 - 3,800+ indexed chunks across 68 documents
 
 ---
@@ -56,9 +58,9 @@ flowchart LR
     H -->|≥ 0.35| J[Partial context]
     H -->|< 0.35| K[Out of scope]
 
-    I --> L[gpt-4o-mini]
+    I --> L[gpt-4o-mini\nSSE stream]
     J --> L
-    L -->|reply + sources| A
+    L -->|token stream + sources| A
 ```
 
 **Ingestion pipeline:**
@@ -80,9 +82,10 @@ nova/
 ├── app/                              # FastAPI backend
 │   ├── __init__.py
 │   ├── db.py                         # ThreadedConnectionPool (psycopg2)
-│   ├── main.py                       # /chat endpoint
+│   ├── main.py                       # /chat and /chat/stream endpoints
+│   ├── admin_router.py               # /admin/* endpoints (stats, documents, delete, reingest)
 │   ├── final_retreval.py             # Hybrid search + Cohere reranking
-│   ├── retrieval_core.py             # Thresholds, context building, answer gen
+│   ├── retrieval_core.py             # Thresholds, context building, answer gen + streaming
 │   └── query_rewrite.py              # Follow-up → standalone query
 │
 ├── data-pipeline/
@@ -98,12 +101,17 @@ nova/
 │   └── notebooks/
 │       └── VITingestdownload.ipynb   # Colab ingestion notebook (T4 GPU)
 │
+├── evaluation/
+│   ├── dataset.json                  # 25 ground-truth QA pairs
+│   ├── evaluate.py                   # RAGAS evaluation script
+│   └── results/                      # Saved eval JSON outputs
+│
 ├── data/                             # Place PDFs here before running ingestion
-│   └── .gitkeep                      # Folder tracked in git, contents gitignored
+│   └── .gitkeep
 ├── requirements.txt                  # API server dependencies
-├── requirements-ingestion.txt        # Colab ingestion dependencies
+├── requirements-ingest.txt           # Colab ingestion dependencies
 ├── requirements-scraping.txt         # Scraper dependencies
-├── .env.example                      # Copy to .env and fill in your keys
+├── .env.example
 └── .env                              # gitignored
 ```
 
@@ -142,7 +150,8 @@ pgvector cosine · top 20               tsvector plainto_tsquery · top 20
             score < 0.35  →  out of scope
                       │
                       ▼
-            gpt-4o-mini generates answer + source citations
+            gpt-4o-mini streams answer tokens via SSE
+            sources emitted after stream completes
 ```
 
 **Why RRF over score normalization?**
@@ -209,8 +218,8 @@ PostgreSQL + pgvector
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/your-username/nova-vit
-cd nova-vit
+git clone https://github.com/AdityaMedidala/vit-qa-bot-backend
+cd vit-qa-bot-backend
 pip install -r requirements.txt
 ```
 
@@ -218,25 +227,18 @@ pip install -r requirements.txt
 
 ```bash
 cp .env.example .env
-# Fill in your keys
 ```
 
 ```env
 OPENAI_API_KEY=sk-...
 COHERE_API_KEY=...
 SUPABASE_URL=postgresql://postgres:[password]@[host]:5432/postgres
+ADMIN_SECRET=your-admin-secret
 ```
 
 ### 3. Add your PDFs
 
-Place PDF files in the `data/` folder before running ingestion. The folder exists in the repo (tracked via `.gitkeep`) but its contents are gitignored — PDFs are not committed.
-
-```bash
-data/
-├── Academic-Regulations.pdf
-├── Student-Code-of-Conduct.pdf
-└── ...
-```
+Place PDF files in the `data/` folder before running ingestion. The folder exists in the repo (tracked via `.gitkeep`) but its contents are gitignored.
 
 To scrape PDFs from vit.ac.in directly:
 
@@ -307,6 +309,8 @@ python -m uvicorn app.main:app --reload
 
 ### `POST /chat`
 
+Non-streaming chat endpoint. Returns the full reply once generation is complete.
+
 ```json
 // Request
 {
@@ -328,7 +332,68 @@ python -m uvicorn app.main:app --reload
 }
 ```
 
+### `POST /chat/stream`
+
+Streaming endpoint using Server-Sent Events (SSE). The frontend connects here for real-time token delivery.
+
+```
+// Request body — same as /chat
+{ "message": string, "conversation_id": string | null }
+
+// SSE event stream
+event: meta
+data: {"conversation_id": "uuid"}
+
+event: token
+data: {"token": "VIT requires"}
+
+event: token
+data: {"token": " a minimum"}
+
+... (one event per token)
+
+event: sources
+data: {"sources": [{...}, {...}]}
+
+event: done
+data: {}
+```
+
 Pass the returned `conversation_id` in subsequent messages to enable follow-up handling. The backend rewrites follow-ups into standalone queries before retrieval.
+
+### Admin endpoints
+
+All admin endpoints require the `X-Admin-Secret` header matching the `ADMIN_SECRET` env var.
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/admin/stats` | Total docs, chunks, processing/failed counts, last ingestion time |
+| `GET` | `/admin/documents` | List all documents with status and chunk count |
+| `DELETE` | `/admin/documents/{doc_id}` | Delete document and all its chunks |
+| `POST` | `/admin/documents/{doc_id}/reingest` | Mark document for re-ingestion, clear its chunks |
+
+---
+
+## Evaluation
+
+RAGAS evaluation results on 25 questions (full dataset):
+
+| Metric | NOVA | Baseline (GPT-4o-mini, no RAG) |
+|---|---|---|
+| Faithfulness | 0.89 | — |
+| Answer Relevancy | 0.73 | 0.70 |
+| Context Precision | 0.61 | — |
+| Context Recall | 0.30 | — |
+
+Faithfulness (0.89) confirms answers stay grounded in retrieved context. Context recall (0.30) is the primary area for improvement — several policy documents (hostel handbook, CAT rules) have low retrieval coverage, likely due to chunk granularity rather than missing documents.
+
+Run the evaluation:
+
+```bash
+python evaluation/evaluate.py
+python evaluation/evaluate.py --limit 10       # first N questions only
+python evaluation/evaluate.py --skip-baseline  # faster, NOVA only
+```
 
 ---
 
@@ -338,7 +403,7 @@ Pass the returned `conversation_id` in subsequent messages to enable follow-up h
 |---|---|---|---|
 | `documents` | `document_id` | UUID | PK |
 | | `fingerprint` | TEXT | SHA-256, unique — prevents re-ingestion |
-| | `status` | TEXT | `processing` · `done` · `failed` |
+| | `status` | TEXT | `processing` · `done` · `failed` · `pending_reingest` |
 | `document_chunks` | `chunk_id` | TEXT | Slug-based: `doc__section__chunk_000` |
 | | `embedding` | vector(3072) | text-embedding-3-large |
 | | `ts` | tsvector | auto-populated via trigger |

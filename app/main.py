@@ -12,6 +12,7 @@ from openai import OpenAI
 from app.final_retreval import retrieve_sql
 from app.retrieval_core import answer_query, stream_answer_query
 from app.query_rewrite import rewrite_follow_up
+from app.admin_router import router as admin_router   # ← new
 
 app = FastAPI()
 client = OpenAI()
@@ -21,6 +22,8 @@ app.add_middleware(
     allow_origins=["*"], allow_credentials=True,
     allow_methods=["*"], allow_headers=["*"],
 )
+
+app.include_router(admin_router)   # ← new
 
 # In-memory conversation store — resets on restart (fine for now)
 conversation_store: dict[str, dict] = {}
